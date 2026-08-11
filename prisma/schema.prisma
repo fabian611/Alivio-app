@@ -1,0 +1,226 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Compania {
+  id           String    @id @default(uuid()) @db.Uuid
+  nit          String?   @unique
+  nombre       String
+  nombreCorto  String?   @map("nombre_corto")
+  fechaInicial DateTime? @map("fecha_inicial") @db.Date
+  urlCargue    String?   @map("url_cargue")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  usuarios     User[]
+  creditos     Credito[]
+  reglas       Regla[]
+  tratamientos Tratamiento[]
+  gestiones    Gestion[]
+  conversaciones Conversacion[]
+
+  @@map("companias")
+}
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String?   @map("nombre")
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified") @db.Timestamptz(6)
+  image         String?
+  passwordHash  String    @map("password")
+  cargo         String?
+  role          String    @default("gestor") @map("rol")
+  active        Boolean   @default(true) @map("estado")
+  companiaId    String?   @map("compania_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  compania Compania? @relation(fields: [companiaId], references: [id], onDelete: SetNull)
+  accounts Account[]
+  sessions Session[]
+
+  @@index([companiaId])
+  @@map("usuarios")
+}
+
+model Credito {
+  id             String   @id @default(uuid()) @db.Uuid
+  pagaduria      String?
+  nroCredito     String?  @map("nro_credito")
+  idDeudor       String?  @map("id_deudor")
+  deudor         String?
+  telefono       String?
+  valorCredito   Decimal  @default(0) @map("valor_credito") @db.Decimal(15, 2)
+  saldoCapital   Decimal  @default(0) @map("saldo_capital") @db.Decimal(15, 2)
+  saldoIntereses Decimal  @default(0) @map("saldo_intereses") @db.Decimal(15, 2)
+  saldoCuentas   Decimal  @default(0) @map("saldo_cuentas") @db.Decimal(15, 2)
+  cuotaMes       Decimal  @default(0) @map("cuota_mes") @db.Decimal(15, 2)
+  cuotasTotal    Int      @default(0) @map("cuotas_total")
+  diasMoraIni    Int      @default(0) @map("dias_mora_ini")
+  diasMoraAct    Int      @default(0) @map("dias_mora_act")
+  estado         String   @default("sin_tratar")
+  regla          String   @default("")
+  responsable    String   @default("")
+  responsables   String[]
+  canal          String[]
+  companiaId     String?  @map("compania_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  compania      Compania?      @relation(fields: [companiaId], references: [id], onDelete: Cascade)
+  tratamientos  Tratamiento[]
+  gestiones     Gestion[]
+  conversaciones Conversacion[]
+
+  @@index([companiaId], map: "idx_creditos_compania")
+  @@index([estado], map: "idx_creditos_estado")
+  @@index([responsable], map: "idx_creditos_responsable")
+  @@index([nroCredito], map: "idx_creditos_nro")
+  @@index([idDeudor], map: "idx_creditos_id_deudor")
+  @@map("creditos")
+}
+
+model Regla {
+  id           String   @id @default(uuid()) @db.Uuid
+  nombre       String
+  descripcion  String?
+  condiciones  Json
+  canal        String[]
+  responsables String[]
+  companiaId   String?  @map("compania_id") @db.Uuid
+  creadaPor    String?  @map("creada_por")
+  activa       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  compania Compania? @relation(fields: [companiaId], references: [id], onDelete: Cascade)
+
+  @@index([companiaId], map: "idx_reglas_compania")
+  @@map("reglas")
+}
+
+model Tratamiento {
+  id           String   @id @default(uuid()) @db.Uuid
+  creditoId    String   @map("credito_id") @db.Uuid
+  companiaId   String?  @map("compania_id") @db.Uuid
+  regla        String?
+  responsable  String?
+  responsables String[]
+  canal        String[]
+  condiciones  String?
+  aplicadoPor  String?  @map("aplicado_por")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  credito  Credito   @relation(fields: [creditoId], references: [id], onDelete: Cascade)
+  compania Compania? @relation(fields: [companiaId], references: [id], onDelete: Cascade)
+
+  @@index([creditoId], map: "idx_tratamientos_credito")
+  @@index([companiaId], map: "idx_tratamientos_compania")
+  @@index([aplicadoPor], map: "idx_tratamientos_aplicado")
+  @@map("tratamientos")
+}
+
+model Gestion {
+  id                String    @id @default(uuid()) @db.Uuid
+  creditoId         String    @map("credito_id") @db.Uuid
+  companiaId        String?   @map("compania_id") @db.Uuid
+  negociador        String
+  tipoContacto      String    @map("tipo_contacto")
+  negociacion       String
+  subaccion         String?
+  fechaCompromiso   DateTime? @map("fecha_compromiso") @db.Date
+  compromisoCliente String?   @map("compromiso_cliente")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  credito  Credito   @relation(fields: [creditoId], references: [id], onDelete: Cascade)
+  compania Compania? @relation(fields: [companiaId], references: [id], onDelete: Cascade)
+
+  @@index([creditoId], map: "idx_gestiones_credito")
+  @@index([negociador], map: "idx_gestiones_negociador")
+  @@index([companiaId], map: "idx_gestiones_compania")
+  @@map("gestiones")
+}
+
+model Conversacion {
+  id              String    @id @default(uuid()) @db.Uuid
+  creditoId       String    @map("credito_id") @db.Uuid
+  companiaId      String?   @map("compania_id") @db.Uuid
+  telefono        String
+  canal           String    @default("whatsapp")
+  ventanaExpiraAt DateTime? @map("ventana_expira_at") @db.Timestamptz(6)
+  ultimoMensajeAt DateTime? @map("ultimo_mensaje_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  credito  Credito   @relation(fields: [creditoId], references: [id], onDelete: Cascade)
+  compania Compania? @relation(fields: [companiaId], references: [id], onDelete: Cascade)
+  mensajes Mensaje[]
+
+  @@unique([creditoId, telefono, canal])
+  @@index([telefono], map: "idx_conversaciones_telefono")
+  @@index([companiaId], map: "idx_conversaciones_compania")
+  @@map("conversaciones")
+}
+
+model Mensaje {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversacionId String   @map("conversacion_id") @db.Uuid
+  direccion      String
+  cuerpo         String
+  twilioSid      String?  @unique @map("twilio_sid")
+  estado         String   @default("queued")
+  errorMensaje   String?  @map("error_mensaje")
+  enviadoPor     String?  @map("enviado_por")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  conversacion Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+
+  @@index([conversacionId], map: "idx_mensajes_conversacion")
+  @@map("mensajes")
+}
+
+model Account {
+  userId            String   @map("user_id") @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String   @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id") @db.Uuid
+  expires      DateTime @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime @db.Timestamptz(6)
+
+  @@id([identifier, token])
+  @@map("verification_tokens")
+}
